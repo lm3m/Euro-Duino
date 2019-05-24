@@ -87,6 +87,11 @@ int offCount = 0;
 const int maxSteps = 32;
 int arrEuclid[maxSteps];
 
+int in1Pin = 0;
+int in1Pot = 0;
+int in2Pin = 0;
+int in2Pot = 0;
+
 unsigned long currPulse = 0;
 unsigned long offPulse = 0;
 unsigned int note = 51;
@@ -95,13 +100,40 @@ unsigned int note2 = 100;
 unsigned int ocatvePos2 = 11;
 int doCalc = 0;
 int offCountSteps = 6;
+
+
+const unsigned int maxReading1 = 10;
+unsigned int readingCount1 = 0;
+unsigned int totalReading1 = 0;
+int readings1[maxReading1];
+
+const unsigned int maxReading2 = 10;
+unsigned int readingCount2 = 0;
+unsigned int totalReading2 = 0;
+int readings2[maxReading2];
+
+
 void GetAnalogs(void)
 {
-  inSteps = (analogRead(analogIn1Pin) >> 5) + 1;
-  inSteps += (analogRead(analogPot1Pin) >> 5) + 1;
-  offCountSteps = inSteps;
-  inPulses = (analogRead(analogIn2Pin) >> 5) + 1;
-  inPulses += (analogRead(analogPot2Pin) >> 5) + 1;
+ // in1Pin = analogRead(analogIn1Pin);
+ in1Pot = analogRead(analogPot1Pin);
+ totalReading1 = totalReading1 - readings1[readingCount1 % maxReading1];
+ totalReading1 += in1Pot;
+ readings1[readingCount1 % maxReading1] = in1Pot;
+ in1Pot = totalReading1 / maxReading1;
+ readingCount1++;
+ // in2Pin = analogRead(analogIn2Pin);
+ in2Pot = analogRead(analogPot2Pin);
+ totalReading2 = totalReading2 - readings2[readingCount2 % maxReading2];
+ totalReading2 += in2Pot;
+ readings2[readingCount2 % maxReading2] = in2Pot;
+ in2Pot = totalReading2 / maxReading2;
+ readingCount2++;
+ inSteps = (in1Pot >> 5) + 1;
+ //inSteps += (in1Pin >> 6);
+ offCountSteps = inSteps;
+ inPulses = ( in2Pot >> 5) + 1;
+ //inPulses += ( in2Pin >> 6);
 }
 
 
@@ -117,16 +149,24 @@ void setup()
   pinMode(Switch2Up, INPUT_PULLUP);
   pinMode(Switch2Dwn, INPUT_PULLUP);
     
+  pinMode(analogIn1Pin, INPUT);
+  pinMode(analogPot1Pin, INPUT_PULLUP);
+  pinMode(analogIn2Pin, INPUT);
+  pinMode(analogPot2Pin, INPUT_PULLUP);
+
+  for(int i = 0; i < maxReading1; ++i) {
+    readings1[i] = readings2[i] = 0;
+  }
+  // Note: Interrupt 0 is for pin 2 (clkIn)
+  //attachInterrupt(0, isr, RISING);
+  Serial.begin(9600);
+  Serial.println("start...");
+  Serial.println(A2);
   // get the analog reading to set up the system
   GetAnalogs();
   inRotate = 0;
   
   euCalc(0);
-  
-  // Note: Interrupt 0 is for pin 2 (clkIn)
-  //attachInterrupt(0, isr, RISING);
-  Serial.begin(9600);
-  Serial.println("start...");
 }
 
 void loop()
@@ -163,6 +203,15 @@ void loop()
       Serial.print(ocatvePos2);
       Serial.print(" note2: ");
       Serial.println(note2);
+      Serial.print("pin 1: ");
+      Serial.print(in1Pin);
+      Serial.print(" pot 1: ");
+      Serial.print(in1Pot);
+      Serial.print(" pin 2: ");
+      Serial.print(in2Pin);
+      Serial.print(" pot 2: ");
+      Serial.println(in2Pot);
+      
       digState = HIGH;
       digMilli = millis();
       if( digitalRead(Switch1Dwn) ){
@@ -218,10 +267,34 @@ void loop()
   inPulsesOld=inPulses;
   GetAnalogs();
   if (inStepsOld != inSteps) {
+    Serial.print("Steps old: ");
+    Serial.print(inStepsOld);
+    Serial.print(" new: ");
+    Serial.print(inSteps);
+          Serial.print(" pin 1: ");
+      Serial.print(in1Pin);
+      Serial.print(" pot 1: ");
+      Serial.print(in1Pot);
+      Serial.print(" pin 2: ");
+      Serial.print(in2Pin);
+      Serial.print(" pot 2: ");
+      Serial.println(in2Pot);
     doCalc = 1;
   }
   
   if (inPulsesOld != inPulses) {
+    Serial.print("Pulses old: ");
+    Serial.print(inPulsesOld);
+    Serial.print(" new: ");
+    Serial.print(inPulses);
+      Serial.print(" pin 1: ");
+      Serial.print(in1Pin);
+      Serial.print(" pot 1: ");
+      Serial.print(in1Pot);
+      Serial.print(" pin 2: ");
+      Serial.print(in2Pin);
+      Serial.print(" pot 2: ");
+      Serial.println(in2Pot);
     doCalc = 1;
   }
   
@@ -251,56 +324,63 @@ void euCalc(int ar) {
   int loc = 0;
   
   // clear the array to start
-  for (int i=0; i<32; i++) {
-    
+  for (int i=0; i<maxSteps; i++) {
     arrEuclid[i] = 0;
   }
   
   if ((inPulses >= inSteps) || (inSteps == 1)) {
-        if (inPulses >= inSteps) {
-            for (int i = 0; i < inSteps; i++) {
-              arrEuclid[loc] = 1;
-              loc++;
-            }
-        }
-      } else {
-        int offs = inSteps - inPulses;
-        if (offs >= inPulses) {
-            int ppc = offs / inPulses;
-            int rmd = offs % inPulses;
-            
-            for (int i = 0; i < inPulses; i++) {
-              arrEuclid[loc] = 1;
-              loc++;
-              for (int j = 0; j < ppc; j++) {
-                arrEuclid[loc] = 0;
-                loc++;
-              }
-              if (i < rmd) {
-                arrEuclid[loc] = 0;
-                loc++;
-              }
-            }
-        } else {
-          int ppu = (inPulses - offs) / offs;
-          int rmd = (inPulses - offs) % offs;
-            
-          for (int i = 0; i < offs; i++) {
-            arrEuclid[loc] = 1;
-            loc++;
-            arrEuclid[loc] = 0;
-            loc++;
-            for (int j = 0; j < ppu; j++) {
-              arrEuclid[loc] = 1;
-              loc++;
-            }
-            if (i < rmd) {
-              arrEuclid[loc] = 1;
-              loc++;
-            }
-          }
-        }
+    if (inPulses >= inSteps) {
+      for (int i = 0; i < inSteps && loc < maxSteps; i++) {
+        arrEuclid[loc] = 1;
+        loc++;
+      }
     }
+  } else {
+    int offs = inSteps - inPulses;
+    if (offs >= inPulses) {
+      int ppc = offs / inPulses;
+      int rmd = offs % inPulses;
+      
+      for (int i = 0; i < inPulses && loc < maxSteps; i++) {
+        arrEuclid[loc] = 1;
+        loc++;
+        for (int j = 0; j < ppc && loc < maxSteps; j++) {
+          arrEuclid[loc] = 0;
+          loc++;
+        }
+        if (i < rmd && loc < maxSteps) {
+          arrEuclid[loc] = 0;
+          loc++;
+        }
+      }
+    } else {
+      int ppu = (inPulses - offs) / offs;
+      int rmd = (inPulses - offs) % offs;
+        
+      for (int i = 0; i < offs && loc < maxSteps; i++) {
+        arrEuclid[loc] = 1;
+        loc++;
+        if(loc < maxSteps) {
+          arrEuclid[loc] = 0;
+          loc++;
+        }
+        for (int j = 0; j < ppu && loc < maxSteps; j++) {
+          arrEuclid[loc] = 1;
+          loc++;
+        }
+        if (i < rmd && loc < maxSteps) {
+          arrEuclid[loc] = 1;
+          loc++;
+        }
+      }
+    }
+  }
+  Serial.print("arrEuclid: ");
+  for(int i = 0; i < maxSteps; i++){
+    Serial.print(arrEuclid[i]);
+    Serial.print(".");
+  }
+  Serial.println(" ");
 }
 
 // ===================== end of program =======================rmd
