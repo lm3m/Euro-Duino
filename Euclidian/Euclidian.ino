@@ -72,10 +72,6 @@ volatile int clkState = LOW;
 int digState = LOW; // start with both set low
 unsigned long digMilli = 0; // a place to store millis()
 
-// variables used to control the current AIO output state
-int anaState = LOW;
-unsigned long anaMilli = 0;
-
 // the euclidian rhythm settings
 int inSteps=0;
 int inPulses=0;
@@ -101,34 +97,42 @@ unsigned int ocatvePos2 = 11;
 int doCalc = 0;
 int offCountSteps = 6;
 
+const unsigned int maxReadings = 10;
+struct SmoothReadings {
+  unsigned int readingCount = 0;
+  unsigned int totalReading = 0;
+  int readings[maxReadings];
 
-const unsigned int maxReading1 = 10;
-unsigned int readingCount1 = 0;
-unsigned int totalReading1 = 0;
-int readings1[maxReading1];
+  void init() {
+    this->readingCount = 0;
+    this->totalReading = 0;
+    for(int i = 0; i < maxReadings; i++) {
+      this->readings[i] = 0;
+    }
+  }
 
-const unsigned int maxReading2 = 10;
-unsigned int readingCount2 = 0;
-unsigned int totalReading2 = 0;
-int readings2[maxReading2];
+  int count() {
+    return maxReadings < this->readingCount ? maxReadings : this->readingCount;
+  }
 
+  int addValue(int newReading){
+    this->totalReading = this->totalReading - this->readings[this->readingCount % maxReadings];
+    this->totalReading += newReading;
+    this->readings[this->readingCount % maxReadings] = newReading;
+    this->readingCount++;
+    return totalReading / this->count();
+  }
+};
+
+SmoothReadings readings1;
+SmoothReadings readings2;
 
 void GetAnalogs(void)
 {
  // in1Pin = analogRead(analogIn1Pin);
- in1Pot = analogRead(analogPot1Pin);
- totalReading1 = totalReading1 - readings1[readingCount1 % maxReading1];
- totalReading1 += in1Pot;
- readings1[readingCount1 % maxReading1] = in1Pot;
- in1Pot = totalReading1 / maxReading1;
- readingCount1++;
+ in1Pot = readings1.addValue(analogRead(analogPot1Pin));
  // in2Pin = analogRead(analogIn2Pin);
- in2Pot = analogRead(analogPot2Pin);
- totalReading2 = totalReading2 - readings2[readingCount2 % maxReading2];
- totalReading2 += in2Pot;
- readings2[readingCount2 % maxReading2] = in2Pot;
- in2Pot = totalReading2 / maxReading2;
- readingCount2++;
+ in2Pot = readings2.addValue(analogRead(analogPot2Pin));
  inSteps = (in1Pot >> 5) + 1;
  //inSteps += (in1Pin >> 6);
  offCountSteps = inSteps;
@@ -154,9 +158,8 @@ void setup()
   pinMode(analogIn2Pin, INPUT);
   pinMode(analogPot2Pin, INPUT_PULLUP);
 
-  for(int i = 0; i < maxReading1; ++i) {
-    readings1[i] = readings2[i] = 0;
-  }
+  readings1.init();
+  readings2.init();
   // Note: Interrupt 0 is for pin 2 (clkIn)
   //attachInterrupt(0, isr, RISING);
   Serial.begin(9600);
@@ -177,41 +180,19 @@ void loop()
     currPulse++;
     doClock = HIGH;
   }
-  lastClock=thisClock;
 
-  if (doClock==HIGH) {
-    doClock=LOW;
-    //Serial.println("Got Clk");
+  lastClock = thisClock;
+ 
+  if (doClock == HIGH) {
+    doClock = LOW;
+    inRotate++;
     int outPulse = 0;
-    int myPulse = (currPulse + inRotate++) % maxSteps;
-
+    int myPulse = (currPulse) % maxSteps;
     outPulse = arrEuclid[myPulse];
-    if (outPulse > 0) {
-      Serial.print("inPulses: ");
-      Serial.print(inPulses);
-      Serial.print(" inSteps: ");
-      Serial.print(inSteps);
-      Serial.print(" currPulse: ");
-      Serial.print(currPulse);
-      Serial.print(" inRotate: ");
-      Serial.print(inRotate);
-      Serial.print(" ocatvePos: ");
-      Serial.print(ocatvePos);
-      Serial.print(" note: ");
-      Serial.println(note);
-      Serial.print(" ocatvePos2: ");
-      Serial.print(ocatvePos2);
-      Serial.print(" note2: ");
-      Serial.println(note2);
-      Serial.print("pin 1: ");
-      Serial.print(in1Pin);
-      Serial.print(" pot 1: ");
-      Serial.print(in1Pot);
-      Serial.print(" pin 2: ");
-      Serial.print(in2Pin);
-      Serial.print(" pot 2: ");
-      Serial.println(in2Pot);
-      
+
+    dumpState(outPulse);
+
+    if (outPulse > 0) {      
       digState = HIGH;
       digMilli = millis();
       if( digitalRead(Switch1Dwn) ){
@@ -227,79 +208,28 @@ void loop()
       ocatvePos2 = nextOcatve(ocatvePos2);
       note = 51 + (4.5 * (ocatvePos % 12));
       note2 = 51 + (4.5 * (ocatvePos2 % 12));
-
-      
-      offCount = offCountSteps;
     }
-   
-    anaState = HIGH;
-    anaMilli = millis();
-    //dacOutput(255);
-  }
-  // do we have to turn off any of the digital outputs?
-  if ((digState == HIGH) && (millis() - digMilli > trigTime)) {
-    int outPulse = 0;
-    int myPulse = (offPulse + inRotate++) % maxSteps;
-    outPulse = arrEuclid[myPulse];
-
-    if(outPulse > 0 && offCount%offCountSteps == 0){      
-      Serial.print("outPulse off: ");
-      Serial.print(outPulse, BIN);
-      Serial.print(" offCount: ");
-      Serial.println(offCount%offCountSteps);
-
+    else {
       digState = LOW;
       digitalWrite(DigitalOut1Pin, LOW);
       digitalWrite(DigitalOut2Pin, LOW);
+      offCount++;
+      offPulse++;
     }
-    else {
-      digMilli = millis();
-    }
-    offCount++;
-    offPulse++;
   }
   
-  // reread the inputs in case we need to change
-  int inStepsOld,inPulsesOld;
-  
+  // read the inputs in case we need to change
   doCalc = 0;
-  inStepsOld=inSteps;
-  inPulsesOld=inPulses;
+  int inStepsOld = inSteps;
+  int inPulsesOld = inPulses;
   GetAnalogs();
-  if (inStepsOld != inSteps) {
-    Serial.print("Steps old: ");
-    Serial.print(inStepsOld);
-    Serial.print(" new: ");
-    Serial.print(inSteps);
-          Serial.print(" pin 1: ");
-      Serial.print(in1Pin);
-      Serial.print(" pot 1: ");
-      Serial.print(in1Pot);
-      Serial.print(" pin 2: ");
-      Serial.print(in2Pin);
-      Serial.print(" pot 2: ");
-      Serial.println(in2Pot);
-    doCalc = 1;
-  }
-  
-  if (inPulsesOld != inPulses) {
-    Serial.print("Pulses old: ");
-    Serial.print(inPulsesOld);
-    Serial.print(" new: ");
-    Serial.print(inPulses);
-      Serial.print(" pin 1: ");
-      Serial.print(in1Pin);
-      Serial.print(" pot 1: ");
-      Serial.print(in1Pot);
-      Serial.print(" pin 2: ");
-      Serial.print(in2Pin);
-      Serial.print(" pot 2: ");
-      Serial.println(in2Pot);
+
+  if (inStepsOld != inSteps || inPulsesOld != inPulses) {
     doCalc = 1;
   }
   
   if (doCalc) {
-    
+    dumpInput(inPulsesOld, inStepsOld);    
     euCalc(0);
   }
 }
@@ -375,6 +305,10 @@ void euCalc(int ar) {
       }
     }
   }
+  dumpEuclid();
+}
+
+void dumpEuclid() {
   Serial.print("arrEuclid: ");
   for(int i = 0; i < maxSteps; i++){
     Serial.print(arrEuclid[i]);
@@ -383,4 +317,51 @@ void euCalc(int ar) {
   Serial.println(" ");
 }
 
+void dumpState(int outPulse) {
+  Serial.print("outPluse: ");
+  Serial.print(outPulse);
+  Serial.print(" inPulses: ");
+  Serial.print(inPulses);
+  Serial.print(" inSteps: ");
+  Serial.print(inSteps);
+  Serial.print(" currPulse: ");
+  Serial.print(currPulse);
+  Serial.print(" inRotate: ");
+  Serial.print(inRotate);
+  Serial.print(" ocatvePos: ");
+  Serial.print(ocatvePos);
+  Serial.print(" note: ");
+  Serial.println(note);
+  Serial.print(" ocatvePos2: ");
+  Serial.print(ocatvePos2);
+  Serial.print(" note2: ");
+  Serial.println(note2);
+  Serial.print("pin 1: ");
+  Serial.print(in1Pin);
+  Serial.print(" pot 1: ");
+  Serial.print(in1Pot);
+  Serial.print(" pin 2: ");
+  Serial.print(in2Pin);
+  Serial.print(" pot 2: ");
+  Serial.println(in2Pot);
+}
+
+void dumpInput(int inPulsesOld, int inStepsOld) {
+  Serial.print("Pulses old: ");
+  Serial.print(inPulsesOld);
+  Serial.print(" new: ");
+  Serial.print(inPulses);
+  Serial.print("Steps old: ");
+  Serial.print(inStepsOld);
+  Serial.print(" new: ");
+  Serial.print(inSteps);
+  Serial.print(" pin 1: ");
+  Serial.print(in1Pin);
+  Serial.print(" pot 1: ");
+  Serial.print(in1Pot);
+  Serial.print(" pin 2: ");
+  Serial.print(in2Pin);
+  Serial.print(" pot 2: ");
+  Serial.println(in2Pot);
+}
 // ===================== end of program =======================rmd
