@@ -99,8 +99,8 @@ int offCountSteps = 6;
 
 const unsigned int maxReadings = 10;
 struct SmoothReadings {
-  unsigned int readingCount = 0;
-  unsigned int totalReading = 0;
+  unsigned long readingCount = 0;
+  unsigned long totalReading = 0;
   int readings[maxReadings];
 
   void init() {
