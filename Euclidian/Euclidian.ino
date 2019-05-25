@@ -44,6 +44,8 @@
 
 // These constants won't change.  They're used to give names
 // to the pins used:
+#include "Progression.h"
+
 const int analogIn1Pin = A0;  // Analog Input 1
 const int analogIn2Pin = A1; // Analog Input 2
 const int analogPot1Pin = A2;  // Analog Input 1
@@ -90,10 +92,8 @@ int in2Pot = 0;
 
 unsigned long currPulse = 0;
 unsigned long offPulse = 0;
-unsigned int note = 51;
-unsigned int ocatvePos = 0;
-unsigned int note2 = 100;
-unsigned int ocatvePos2 = 11;
+unsigned int note = 0;
+unsigned int note2 = 0;
 int doCalc = 0;
 int offCountSteps = 6;
 
@@ -126,6 +126,9 @@ struct SmoothReadings {
 
 SmoothReadings readings1;
 SmoothReadings readings2;
+
+Progression* progression1;
+Progression* progression2;
 
 void GetAnalogs(void)
 {
@@ -160,6 +163,11 @@ void setup()
 
   readings1.init();
   readings2.init();
+  progression1 = new Progression(1, 255);
+  progression2 = new Progression(2, 255);
+
+  note = progression1->GetCurrentNote();
+  note2 = progression2->GetCurrentNote();
   // Note: Interrupt 0 is for pin 2 (clkIn)
   //attachInterrupt(0, isr, RISING);
   Serial.begin(9600);
@@ -195,19 +203,17 @@ void loop()
     if (outPulse > 0) {      
       digState = HIGH;
       digMilli = millis();
-      if( digitalRead(Switch1Dwn) ){
+      if(digitalRead(Switch1Dwn) ){
         analogWrite(analogOut1Pin, ~note);
         digitalWrite(DigitalOut1Pin, HIGH);
       }
-      if( digitalRead(Switch2Dwn) ){
+      if(digitalRead(Switch2Dwn) ){
         analogWrite(analogOut2Pin, ~note2);
         digitalWrite(DigitalOut2Pin, HIGH);
       }
 
-      ocatvePos = nextOcatve(ocatvePos);
-      ocatvePos2 = nextOcatve(ocatvePos2);
-      note = 51 + (4.5 * (ocatvePos % 12));
-      note2 = 51 + (4.5 * (ocatvePos2 % 12));
+      note = progression1->GetNextNote(Order::Forward);
+      note2 = progression2->GetNextNote(Order::Forward);
     }
     else {
       digState = LOW;
@@ -328,12 +334,8 @@ void dumpState(int outPulse) {
   Serial.print(currPulse);
   Serial.print(" inRotate: ");
   Serial.print(inRotate);
-  Serial.print(" ocatvePos: ");
-  Serial.print(ocatvePos);
   Serial.print(" note: ");
   Serial.println(note);
-  Serial.print(" ocatvePos2: ");
-  Serial.print(ocatvePos2);
   Serial.print(" note2: ");
   Serial.println(note2);
   Serial.print("pin 1: ");
@@ -362,6 +364,15 @@ void dumpInput(int inPulsesOld, int inStepsOld) {
   Serial.print(" pin 2: ");
   Serial.print(in2Pin);
   Serial.print(" pot 2: ");
-  Serial.println(in2Pot);
+  Serial.print(in2Pot);
+  Serial.print(" Switch1Dwn: ");
+  Serial.print(digitalRead(Switch1Dwn));
+  Serial.print(" Switch1Up: ");
+  Serial.print(digitalRead(Switch1Up));
+  Serial.print(" Switch2Dwn): ");
+  Serial.print(digitalRead(Switch2Dwn));
+  Serial.print(" Switch2Up: ");
+  Serial.println(digitalRead(Switch2Up));
+
 }
 // ===================== end of program =======================rmd
