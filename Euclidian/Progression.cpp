@@ -26,6 +26,7 @@ unsigned long Progression::GetNextNote(Order order, int distance) {
         break;
     case Order::Skip:
         currentPos += distance;
+        break;
     case Order::Reset:
     default:
         currentPos = 0;

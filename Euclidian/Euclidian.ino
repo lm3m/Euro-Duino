@@ -132,9 +132,9 @@ Progression* progression2;
 
 void GetAnalogs(void)
 {
- // in1Pin = analogRead(analogIn1Pin);
+ in1Pin = analogRead(analogIn1Pin);
  in1Pot = readings1.addValue(analogRead(analogPot1Pin));
- // in2Pin = analogRead(analogIn2Pin);
+ in2Pin = analogRead(analogIn2Pin);
  in2Pot = readings2.addValue(analogRead(analogPot2Pin));
  inSteps = (in1Pot >> 5) + 1;
  //inSteps += (in1Pin >> 6);
@@ -157,14 +157,15 @@ void setup()
   pinMode(Switch2Dwn, INPUT_PULLUP);
     
   pinMode(analogIn1Pin, INPUT);
-  pinMode(analogPot1Pin, INPUT_PULLUP);
+  pinMode(analogPot1Pin, INPUT);
   pinMode(analogIn2Pin, INPUT);
-  pinMode(analogPot2Pin, INPUT_PULLUP);
+  pinMode(analogPot2Pin, INPUT);
 
   readings1.init();
   readings2.init();
   progression1 = new Progression(1, 255);
-  progression2 = new Progression(2, 255);
+  progression2 = new Progression(1, 255);
+  progression2->SetScale(Scale::Harmonic);
 
   note = progression1->GetCurrentNote();
   note2 = progression2->GetCurrentNote();
@@ -172,7 +173,6 @@ void setup()
   //attachInterrupt(0, isr, RISING);
   Serial.begin(9600);
   Serial.println("start...");
-  Serial.println(A2);
   // get the analog reading to set up the system
   GetAnalogs();
   inRotate = 0;
@@ -211,9 +211,14 @@ void loop()
         analogWrite(analogOut2Pin, ~note2);
         digitalWrite(DigitalOut2Pin, HIGH);
       }
-
-      note = progression1->GetNextNote(Order::Forward);
-      note2 = progression2->GetNextNote(Order::Forward);
+      if(currPulse % inSteps == 0) {
+        note = progression1->GetNextNote(Order::Reset);
+        note2 = progression2->GetNextNote(Order::Reset);     
+      }
+      else {
+        note = progression1->GetNextNote(Order::Forward);
+        note2 = progression2->GetNextNote(Order::Backward);
+      }
     }
     else {
       digState = LOW;
