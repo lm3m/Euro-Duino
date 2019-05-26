@@ -97,6 +97,15 @@ unsigned int note2 = 0;
 int doCalc = 0;
 int offCountSteps = 6;
 
+enum SwitchState {
+  Down = -1,
+  Middle = 0,
+  Up = 1
+};
+
+SwitchState switch1State;
+SwitchState switch2State;
+
 const unsigned int maxReadings = 10;
 struct SmoothReadings {
   unsigned long readingCount = 0;
@@ -130,17 +139,24 @@ SmoothReadings readings2;
 Progression* progression1;
 Progression* progression2;
 
-void GetAnalogs(void)
-{
- in1Pin = analogRead(analogIn1Pin);
- in1Pot = readings1.addValue(analogRead(analogPot1Pin));
- in2Pin = analogRead(analogIn2Pin);
- in2Pot = readings2.addValue(analogRead(analogPot2Pin));
- inSteps = (in1Pot >> 5) + 1;
- //inSteps += (in1Pin >> 6);
- offCountSteps = inSteps;
- inPulses = ( in2Pot >> 5) + 1;
- //inPulses += ( in2Pin >> 6);
+void GetSwitchStates() {
+  switch1State = digitalRead(Switch1Up) ? SwitchState::Up : SwitchState::Middle;
+  switch1State = digitalRead(Switch1Dwn) ? SwitchState::Down : switch1State;
+  switch2State = digitalRead(Switch2Up) ? SwitchState::Up : SwitchState::Middle;
+  switch2State = digitalRead(Switch2Dwn) ? SwitchState::Down : switch2State;
+}
+
+void GetAnalogs(void) {
+  in1Pin = analogRead(analogIn1Pin);
+  in1Pot = readings1.addValue(analogRead(analogPot1Pin));
+  in2Pin = analogRead(analogIn2Pin);
+  in2Pot = readings2.addValue(analogRead(analogPot2Pin));
+  inSteps = (in1Pot >> 5) + 1;
+  //inSteps += (in1Pin >> 6);
+  offCountSteps = inSteps;
+  inPulses = ( in2Pot >> 5) + 1;
+  //inPulses += ( in2Pin >> 6);
+  GetSwitchStates();
 }
 
 
