@@ -157,7 +157,7 @@ void setup()
   pinMode(Switch2Dwn, INPUT_PULLUP);
     
   pinMode(analogIn1Pin, INPUT);
-  pinMode(analogPot1Pin, INPUT);
+  pinMode(analogPot1Pin, INPUT_PULLUP);
   pinMode(analogIn2Pin, INPUT);
   pinMode(analogPot2Pin, INPUT);
 
