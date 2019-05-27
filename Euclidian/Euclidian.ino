@@ -119,8 +119,7 @@ void GetAnalogs(void) {
 // ==================== start of setup() ======================
 void setup()
 {
-  pinMode(DigitalIn1Pin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(DigitalIn1Pin), clockInterrrupt, RISING);
+  pinMode(DigitalIn1Pin, INPUT);
   pinMode(DigitalIn2Pin, INPUT);
   pinMode(DigitalOut1Pin, OUTPUT); 
   pinMode(DigitalOut2Pin, OUTPUT); 
@@ -248,55 +247,64 @@ void updatePotState(int potIndex) {
 
 void loop()
 {
-}
-
-void clockInterrrupt() {
   int oldInSteps = numSteps;
   int oldInPulsesA = numPulsesA;
   int oldInPulsesB = numPulsesB;
-  dumpInput(oldInPulsesA, oldInPulsesB, oldInSteps);    
+  // check to see if the clock as been set
+  byte thisClock = digitalRead(DigitalIn1Pin);
+  bool doClock;
+  if (thisClock == HIGH && lastClock == LOW) {
+    currPulse++;
+    doClock = true;;
+  }
 
-  inRotate++;
-  int outPulseA = arrayA[(currPulse) % maxSteps];
-  int outPulseB = arrayB[(currPulse) % maxSteps];
+  lastClock = thisClock;
+ 
+  if (doClock) {
+    dumpInput(oldInPulsesA, oldInPulsesB, oldInSteps);    
 
-  dumpState(outPulseA, outPulseB);
+    inRotate++;
+    int outPulseA = arrayA[(currPulse) % maxSteps];
+    int outPulseB = arrayB[(currPulse) % maxSteps];
 
-  if (outPulseA > 0) {      
-    unsigned long note;
-    if(currPulse % numSteps == 0) {
-      note = progression1->GetNextNote(Order::Reset);
+    dumpState(outPulseA, outPulseB);
+
+    if (outPulseA > 0) {      
+      unsigned long note;
+      if(currPulse % numSteps == 0) {
+        note = progression1->GetNextNote(Order::Reset);
+      }
+      else {
+        note = progression1->GetNextNote(Order::Forward);
+      }
+
+      if(switch1State != SwitchState::Down){
+        analogWrite(analogOut1Pin, ~note);
+        digitalWrite(DigitalOut1Pin, HIGH);
+      }
     }
     else {
-      note = progression1->GetNextNote(Order::Forward);
+      digitalWrite(DigitalOut1Pin, LOW);
+      digitalWrite(DigitalOut2Pin, LOW);
     }
 
-    if(switch1State != SwitchState::Down){
-      analogWrite(analogOut1Pin, ~note);
-      digitalWrite(DigitalOut1Pin, HIGH);
-    }
-  }
-  else {
-    digitalWrite(DigitalOut1Pin, LOW);
-    digitalWrite(DigitalOut2Pin, LOW);
-  }
+    if (outPulseB > 0) {      
+      unsigned long note2;
+      if(currPulse % numSteps == 0) {
+        note2 = progression2->GetNextNote(Order::Reset);     
+      }
+      else {
+        note2 = progression2->GetNextNote(Order::Forward);
+      }
 
-  if (outPulseB > 0) {      
-    unsigned long note2;
-    if(currPulse % numSteps == 0) {
-      note2 = progression2->GetNextNote(Order::Reset);     
+      if(switch1State != SwitchState::Down){
+        analogWrite(analogOut2Pin, ~note2);
+        digitalWrite(DigitalOut2Pin, HIGH);
+      }
     }
     else {
-      note2 = progression2->GetNextNote(Order::Forward);
+      digitalWrite(DigitalOut2Pin, LOW);
     }
-
-    if(switch1State != SwitchState::Down){
-      analogWrite(analogOut2Pin, ~note2);
-      digitalWrite(DigitalOut2Pin, HIGH);
-    }
-  }
-  else {
-    digitalWrite(DigitalOut2Pin, LOW);
   }
 
 
