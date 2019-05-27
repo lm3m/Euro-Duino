@@ -45,6 +45,9 @@
 // These constants won't change.  They're used to give names
 // to the pins used:
 #include "Progression.h"
+#include "SwitchState.h"
+#include "SmoothReadings.h"
+#include "PotentiometerState.h"
 
 const int analogIn1Pin = A0;  // Analog Input 1
 const int analogIn2Pin = A1; // Analog Input 2
@@ -61,29 +64,17 @@ const int Switch1Dwn = A5;  // Switch 1 Dwn
 const int Switch2Up = 7;  // Switch 2 Up
 const int Switch2Dwn = 2;  // Switch 2 Dwn
 
-// constants related to the Arduino Nano pin use
-const int clkIn = DigitalIn1Pin; // the digital (clock) input
-const int digPin = DigitalOut1Pin; // the digital output pins
-//const int pinOffset = 5; // the first DAC pin (from 5-12)
-const int trigTime = 25; // 25 ms trigger timing
-
-// variables for interrupt handling of the clock input
-volatile int clkState = LOW;
-
-// variables used to control the current DIO output states
-int digState = LOW; // start with both set low
-unsigned long digMilli = 0; // a place to store millis()
-
+const int STATE_A = 0;
+const int STATE_B = 1;
 // the euclidian rhythm settings
-int inSteps=0;
-int inPulses=0;
-int inRotate=0;
-byte lastClock=LOW;
-byte thisClock=LOW;
-byte doClock = LOW;
-int offCount = 0;
+int numSteps = 0;
+int numPulsesA = 0;
+int numPulsesB = 0;
+int inRotate = 0;
+byte lastClock = LOW;
 const int maxSteps = 32;
-int arrEuclid[maxSteps];
+int arrayA[maxSteps];
+int arrayB[maxSteps];
 
 int in1Pin = 0;
 int in1Pot = 0;
@@ -91,50 +82,16 @@ int in2Pin = 0;
 int in2Pot = 0;
 
 unsigned long currPulse = 0;
-unsigned long offPulse = 0;
-unsigned int note = 0;
-unsigned int note2 = 0;
-int doCalc = 0;
-int offCountSteps = 6;
-
-enum SwitchState {
-  Down = -1,
-  Middle = 0,
-  Up = 1
-};
 
 SwitchState switch1State;
 SwitchState switch2State;
 
+PotentiometerState* pot1State;
+PotentiometerState* pot2State;
+
 const unsigned int maxReadings = 10;
-struct SmoothReadings {
-  unsigned long readingCount = 0;
-  unsigned long totalReading = 0;
-  int readings[maxReadings];
-
-  void init() {
-    this->readingCount = 0;
-    this->totalReading = 0;
-    for(int i = 0; i < maxReadings; i++) {
-      this->readings[i] = 0;
-    }
-  }
-
-  int count() {
-    return maxReadings < this->readingCount ? maxReadings : this->readingCount;
-  }
-
-  int addValue(int newReading){
-    this->totalReading = this->totalReading - this->readings[this->readingCount % maxReadings];
-    this->totalReading += newReading;
-    this->readings[this->readingCount % maxReadings] = newReading;
-    this->readingCount++;
-    return totalReading / this->count();
-  }
-};
-
-SmoothReadings readings1;
-SmoothReadings readings2;
+SmoothReadings* readings1;
+SmoothReadings* readings2;
 
 Progression* progression1;
 Progression* progression2;
@@ -148,14 +105,13 @@ void GetSwitchStates() {
 
 void GetAnalogs(void) {
   in1Pin = analogRead(analogIn1Pin);
-  in1Pot = readings1.addValue(analogRead(analogPot1Pin));
+  in1Pot = readings1->addValue(analogRead(analogPot1Pin));
   in2Pin = analogRead(analogIn2Pin);
-  in2Pot = readings2.addValue(analogRead(analogPot2Pin));
-  inSteps = (in1Pot >> 5) + 1;
-  //inSteps += (in1Pin >> 6);
-  offCountSteps = inSteps;
-  inPulses = ( in2Pot >> 5) + 1;
-  //inPulses += ( in2Pin >> 6);
+  in2Pot = readings2->addValue(analogRead(analogPot2Pin));
+  // numSteps = (in1Pot >> 5) + 1;
+  //numSteps += (in1Pin >> 6);
+  // numPulses = ( in2Pot >> 5) + 1;
+  //numPulses += ( in2Pin >> 6);
   GetSwitchStates();
 }
 
@@ -163,7 +119,8 @@ void GetAnalogs(void) {
 // ==================== start of setup() ======================
 void setup()
 {
-  pinMode(DigitalIn1Pin, INPUT);
+  pinMode(DigitalIn1Pin, INPUT_PULLUP);
+  attachInterrupt(digitalPinToInterrupt(DigitalIn1Pin), clockInterrrupt, RISING);
   pinMode(DigitalIn2Pin, INPUT);
   pinMode(DigitalOut1Pin, OUTPUT); 
   pinMode(DigitalOut2Pin, OUTPUT); 
@@ -177,15 +134,15 @@ void setup()
   pinMode(analogIn2Pin, INPUT);
   pinMode(analogPot2Pin, INPUT);
 
-  readings1.init();
-  readings2.init();
+  readings1 = new SmoothReadings(maxReadings);
+  readings2 = new SmoothReadings(maxReadings);
+  pot1State = new PotentiometerState();
+  pot2State = new PotentiometerState();
   progression1 = new Progression(1, 255);
   progression2 = new Progression(1, 255);
   progression2->SetScale(Scale::Harmonic);
 
-  note = progression1->GetCurrentNote();
-  note2 = progression2->GetCurrentNote();
-  // Note: Interrupt 0 is for pin 2 (clkIn)
+  // Note: Interrupt 0 is for pin 2 (DigitalIn1Pin)
   //attachInterrupt(0, isr, RISING);
   Serial.begin(9600);
   Serial.println("start...");
@@ -193,84 +150,179 @@ void setup()
   GetAnalogs();
   inRotate = 0;
   
-  euCalc(0);
+  euCalc(arrayA, numPulsesA);
+  euCalc(arrayB, numPulsesB);
+}
+
+Note mapPotToNote(int potState) {
+  return (Note) (12 * (maxSteps / potState));
+}
+
+Scale mapPotToScale(int potState) {
+  return (Scale) (NUM_SCALES * (maxSteps/ potState));
+}
+
+void updateState(int state) {
+  Note newRoot;
+  Scale newScale;
+  switch (switch2State)
+  {
+  case SwitchState::Up:
+    newRoot = mapPotToNote(pot2State->curState());
+    if(state == STATE_A) {
+      progression1->SetRoot(newRoot);
+    }
+    else {
+      progression2->SetRoot(newRoot);
+    }
+    break;
+
+  case SwitchState::Middle:
+    newScale = mapPotToScale(pot2State->curState());
+    if(state == STATE_A) {
+      progression1->SetScale(newScale);
+    }
+    else {
+      progression2->SetScale(newScale);
+    }
+    break;
+
+  case SwitchState::Down:
+    if(state == STATE_A) {
+      numPulsesA = pot2State->curState();      
+    }
+    else {
+      numPulsesB = pot2State->curState();      
+    }
+    break;
+
+  default:
+    break;
+  }
+}
+
+void updateGlobal() {
+  switch (switch2State)
+  {
+  case SwitchState::Up:
+    // update randomness of A
+    break;
+  
+  case SwitchState::Middle:
+    // update randomness of B
+    break;
+ 
+  case SwitchState::Down:
+    numSteps = pot2State->curState();
+    break;
+ 
+  default:
+    break;
+  }
+}
+
+void updatePotState(int potIndex) {
+  if(potIndex != 2) {
+    return;
+  }
+
+  switch (switch1State)
+  {
+  case SwitchState::Up:
+    updateState(STATE_A);
+    break;
+  
+  case SwitchState::Middle:
+    updateState(STATE_B);
+    break;
+ 
+  case SwitchState::Down:
+    updateGlobal();
+    break;
+ 
+  default:
+    break;
+  }
+
 }
 
 void loop()
 {
-  int inStepsOld = inSteps;
-  int inPulsesOld = inPulses;
-  // check to see if the clock as been set
-  thisClock = digitalRead(clkIn);
-  if (thisClock == HIGH && lastClock == LOW) {
-    currPulse++;
-    doClock = HIGH;
-  }
-
-  lastClock = thisClock;
- 
-  if (doClock == HIGH) {
-    dumpInput(inPulsesOld, inStepsOld);    
-
-    doClock = LOW;
-    inRotate++;
-    int outPulse = 0;
-    int myPulse = (currPulse) % maxSteps;
-    outPulse = arrEuclid[myPulse];
-
-    dumpState(outPulse);
-
-    if (outPulse > 0) {      
-      digState = HIGH;
-      digMilli = millis();
-      if(digitalRead(Switch1Dwn) ){
-        analogWrite(analogOut1Pin, ~note);
-        digitalWrite(DigitalOut1Pin, HIGH);
-      }
-      if(digitalRead(Switch2Dwn) ){
-        analogWrite(analogOut2Pin, ~note2);
-        digitalWrite(DigitalOut2Pin, HIGH);
-      }
-      if(currPulse % inSteps == 0) {
-        note = progression1->GetNextNote(Order::Reset);
-        note2 = progression2->GetNextNote(Order::Reset);     
-      }
-      else {
-        note = progression1->GetNextNote(Order::Forward);
-        note2 = progression2->GetNextNote(Order::Backward);
-      }
-    }
-    else {
-      digState = LOW;
-      digitalWrite(DigitalOut1Pin, LOW);
-      digitalWrite(DigitalOut2Pin, LOW);
-      offCount++;
-      offPulse++;
-    }
-  }
-  
-  // read the inputs in case we need to change
-  doCalc = 0;
-  GetAnalogs();
-
-  if (inStepsOld != inSteps || inPulsesOld != inPulses) {
-    doCalc = 1;
-  }
-  
-  if (doCalc) {
-    euCalc(0);
-  }
-
 }
 
-int nextOcatve(int ocatvePos) {
-  if(inRotate%2) {
-    ocatvePos += 2;
+void clockInterrrupt() {
+  int oldInSteps = numSteps;
+  int oldInPulsesA = numPulsesA;
+  int oldInPulsesB = numPulsesB;
+  dumpInput(oldInPulsesA, oldInPulsesB, oldInSteps);    
+
+  inRotate++;
+  int outPulseA = arrayA[(currPulse) % maxSteps];
+  int outPulseB = arrayB[(currPulse) % maxSteps];
+
+  dumpState(outPulseA, outPulseB);
+
+  if (outPulseA > 0) {      
+    unsigned long note;
+    if(currPulse % numSteps == 0) {
+      note = progression1->GetNextNote(Order::Reset);
+    }
+    else {
+      note = progression1->GetNextNote(Order::Forward);
+    }
+
+    if(switch1State != SwitchState::Down){
+      analogWrite(analogOut1Pin, ~note);
+      digitalWrite(DigitalOut1Pin, HIGH);
+    }
   }
   else {
-    ocatvePos -= 2;
+    digitalWrite(DigitalOut1Pin, LOW);
+    digitalWrite(DigitalOut2Pin, LOW);
   }
-  return ocatvePos;
+
+  if (outPulseB > 0) {      
+    unsigned long note2;
+    if(currPulse % numSteps == 0) {
+      note2 = progression2->GetNextNote(Order::Reset);     
+    }
+    else {
+      note2 = progression2->GetNextNote(Order::Forward);
+    }
+
+    if(switch1State != SwitchState::Down){
+      analogWrite(analogOut2Pin, ~note2);
+      digitalWrite(DigitalOut2Pin, HIGH);
+    }
+  }
+  else {
+    digitalWrite(DigitalOut2Pin, LOW);
+  }
+
+
+  // read the inputs in case we need to change
+  GetAnalogs();
+  if(pot1State->updateState(in1Pot)) {
+    updatePotState(1);
+  }
+
+  if(pot2State->updateState(in2Pot)) {
+    updatePotState(2);
+  }
+
+  if (oldInSteps != numSteps) {
+    euCalc(arrayA, numPulsesA);
+    euCalc(arrayB, numPulsesB);
+  }
+
+  if(oldInPulsesA != numPulsesA){
+    euCalc(arrayA, numPulsesA);
+  }
+
+  if(oldInPulsesB != numPulsesB){
+    euCalc(arrayB, numPulsesB);
+  }
+
 }
 
 // euCalc(int) - create a Euclidean Rhythm array.
@@ -279,28 +331,28 @@ int nextOcatve(int ocatvePos) {
 // making the source code available on the Interwebs.
 // For more info, check out: http://crx091081gb.net/
 // ----------------------------------------------------------------------
-void euCalc(int ar) {
+void euCalc(int* arrEuclid, int numPulses) {
   int loc = 0;
   
   // clear the array to start
-  for (int i=0; i<maxSteps; i++) {
+  for (int i = 0; i < maxSteps; i++) {
     arrEuclid[i] = 0;
   }
   
-  if ((inPulses >= inSteps) || (inSteps == 1)) {
-    if (inPulses >= inSteps) {
-      for (int i = 0; i < inSteps && loc < maxSteps; i++) {
+  if ((numPulses >= numSteps) || (numSteps == 1)) {
+    if (numPulses >= numSteps ) {
+      for (int i = 0; i < numSteps && loc < maxSteps; i++) {
         arrEuclid[loc] = 1;
         loc++;
       }
     }
   } else {
-    int offs = inSteps - inPulses;
-    if (offs >= inPulses) {
-      int ppc = offs / inPulses;
-      int rmd = offs % inPulses;
+    int offs = numSteps - numPulses;
+    if (offs >= numPulses) {
+      int ppc = offs / numPulses;
+      int rmd = offs % numPulses;
       
-      for (int i = 0; i < inPulses && loc < maxSteps; i++) {
+      for (int i = 0; i < numPulses && loc < maxSteps; i++) {
         arrEuclid[loc] = 1;
         loc++;
         for (int j = 0; j < ppc && loc < maxSteps; j++) {
@@ -313,8 +365,8 @@ void euCalc(int ar) {
         }
       }
     } else {
-      int ppu = (inPulses - offs) / offs;
-      int rmd = (inPulses - offs) % offs;
+      int ppu = (numPulses - offs) / offs;
+      int rmd = (numPulses - offs) % offs;
         
       for (int i = 0; i < offs && loc < maxSteps; i++) {
         arrEuclid[loc] = 1;
@@ -338,30 +390,41 @@ void euCalc(int ar) {
 }
 
 void dumpEuclid() {
-  Serial.print("arrEuclid: ");
+  Serial.print("arrayA: ");
   for(int i = 0; i < maxSteps; i++){
-    Serial.print(arrEuclid[i]);
+    Serial.print(arrayA[i]);
     Serial.print(".");
   }
   Serial.println(" ");
+  Serial.print("arrayB: ");
+  for(int i = 0; i < maxSteps; i++){
+    Serial.print(arrayB[i]);
+    Serial.print(".");
+  }
+  Serial.println(" ");
+
 }
 
-void dumpState(int outPulse) {
-  Serial.print("outPluse: ");
-  Serial.print(outPulse);
-  Serial.print(" inPulses: ");
-  Serial.print(inPulses);
-  Serial.print(" inSteps: ");
-  Serial.print(inSteps);
+void dumpState(int outPulseA, int outPulseB) {
+  Serial.print("outPluseA: ");
+  Serial.print(outPulseA);
+  Serial.print(" outPluseB: ");
+  Serial.print(outPulseB);
+  Serial.print(" numPulsesA: ");
+  Serial.print(numPulsesA);
+  Serial.print(" numPulsesB: ");
+  Serial.print(numPulsesB);
+  Serial.print(" numSteps: ");
+  Serial.print(numSteps);
   Serial.print(" currPulse: ");
   Serial.print(currPulse);
   Serial.print(" inRotate: ");
   Serial.print(inRotate);
   Serial.print(" note: ");
-  Serial.println(note);
+  Serial.println(progression1->GetCurrentNote());
   Serial.print(" note2: ");
-  Serial.println(note2);
-  Serial.print("pin 1: ");
+  Serial.println(progression2->GetCurrentNote());
+  Serial.print(" pin 1: ");
   Serial.print(in1Pin);
   Serial.print(" pot 1: ");
   Serial.print(in1Pot);
@@ -371,15 +434,19 @@ void dumpState(int outPulse) {
   Serial.println(in2Pot);
 }
 
-void dumpInput(int inPulsesOld, int inStepsOld) {
-  Serial.print("Pulses old: ");
-  Serial.print(inPulsesOld);
+void dumpInput(int oldInPulsesA, int oldInPulsesB, int oldInSteps) {
+  Serial.print("Pulses old A: ");
+  Serial.print(oldInPulsesA);
   Serial.print(" new: ");
-  Serial.print(inPulses);
+  Serial.print(numPulsesA);
+  Serial.print(" Pulses old B: ");
+  Serial.print(oldInPulsesB);
+  Serial.print(" new: ");
+  Serial.print(numPulsesB);
   Serial.print(" Steps old: ");
-  Serial.print(inStepsOld);
+  Serial.print(oldInSteps);
   Serial.print(" new: ");
-  Serial.print(inSteps);
+  Serial.print(numSteps);
   Serial.print(" pin 1: ");
   Serial.print(in1Pin);
   Serial.print(" pot 1: ");

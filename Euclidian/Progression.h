@@ -35,10 +35,10 @@ enum Scale {
     Melodic
 };
 
-
+const unsigned int NUM_SCALES = 4;
 class Progression {
 private:
-    unsigned int ScaleProgression [4][7] = {
+    unsigned int ScaleProgression [NUM_SCALES][7] = {
         {0, 2, 4, 5, 7, 9, 11},
         {0, 2, 3, 5, 7, 8, 10},
         {0, 2, 3, 5, 7, 8, 11},

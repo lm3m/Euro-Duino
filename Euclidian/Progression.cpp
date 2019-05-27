@@ -16,6 +16,8 @@ unsigned long Progression::GetCurrentNote() {
 }
 
 unsigned long Progression::GetNextNote(Order order, int distance) {
+    unsigned long note = this->GetCurrentNote();
+    //update state
     switch (order)
     {
     case Order::Forward:
@@ -32,7 +34,7 @@ unsigned long Progression::GetNextNote(Order order, int distance) {
         currentPos = 0;
         break;
     }
-    return this->GetCurrentNote();
+    return note;
 }
 
 void Progression::GenerateNoteTable() {
