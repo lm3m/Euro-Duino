@@ -105,9 +105,9 @@ void GetSwitchStates() {
 
 void GetAnalogs(void) {
   in1Pin = analogRead(analogIn1Pin);
-  in1Pot = readings1->addValue(analogRead(analogPot1Pin));
+  in1Pot = readings1->addValue(analogRead(analogPot1Pin)) >> 5 + 1;
   in2Pin = analogRead(analogIn2Pin);
-  in2Pot = readings2->addValue(analogRead(analogPot2Pin));
+  in2Pot = readings2->addValue(analogRead(analogPot2Pin) >> 5 + 1);
   // numSteps = (in1Pot >> 5) + 1;
   //numSteps += (in1Pin >> 6);
   // numPulses = ( in2Pot >> 5) + 1;
