@@ -156,11 +156,11 @@ void setup()
 }
 
 Note mapPotToNote(int potState) {
-  return (Note) (12 * (maxSteps / potState));
+  return (Note) (12 * (potState / maxSteps));
 }
 
 Scale mapPotToScale(int potState) {
-  return (Scale) (NUM_SCALES * (maxSteps/ potState));
+  return (Scale) (NUM_SCALES * (potState/ maxSteps));
 }
 
 void updateState(int state) {

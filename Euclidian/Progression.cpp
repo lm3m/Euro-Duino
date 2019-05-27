@@ -11,7 +11,8 @@ void Progression::SetScale(Scale scale) {
 }
 
 unsigned long Progression::GetCurrentNote() {
-    unsigned int curNote = this->ScaleProgression[this->scale][this->currentPos % 7];
+    Scale_Progression curProg = this->ScaleProgression[this->scale];
+    unsigned int curNote = curProg.progression[this->currentPos % curProg.size];
     return this->noteTable[(Note)(curNote % Note::Highest_Note)];
 }
 

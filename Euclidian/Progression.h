@@ -32,17 +32,32 @@ enum Scale {
     Major = 0,
     Minor,
     Harmonic,
-    Melodic
+    Melodic,
+    I_IV_V,
+    I_V_VI_IV,
+    I_IV_I_V_I,
+    III_VI_II_V
 };
 
-const unsigned int NUM_SCALES = 4;
+struct Scale_Progression {
+    unsigned int size;
+    unsigned int progression[12];
+};
+
+
+
+const unsigned int NUM_SCALES = 8;
 class Progression {
 private:
-    unsigned int ScaleProgression [NUM_SCALES][7] = {
-        {0, 2, 4, 5, 7, 9, 11},
-        {0, 2, 3, 5, 7, 8, 10},
-        {0, 2, 3, 5, 7, 8, 11},
-        {0, 2, 3, 5, 7, 9, 11}
+    Scale_Progression ScaleProgression [NUM_SCALES] = {
+        {7, {0, 2, 4, 5, 7, 9, 11}},
+        {7, {0, 2, 3, 5, 7, 8, 10}},
+        {7, {0, 2, 3, 5, 7, 8, 11}},
+        {7, {0, 2, 3, 5, 7, 9, 11}},
+        {3, {0, 5, 7}},
+        {4, {0, 7, 9, 5}},
+        {5, {0, 5, 0, 6, 0}},
+        {4, {4, 9, 2, 7}}
     };
 
     unsigned int octave; 
@@ -62,6 +77,7 @@ public:
         this->scale = Scale::Major;
         currentPos = 0;
         GenerateNoteTable();
+        
     }
 
     void SetRoot(Note root);
