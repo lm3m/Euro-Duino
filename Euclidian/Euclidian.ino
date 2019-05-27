@@ -105,9 +105,9 @@ void GetSwitchStates() {
 
 void GetAnalogs(void) {
   in1Pin = analogRead(analogIn1Pin);
-  in1Pot = readings1->addValue(analogRead(analogPot1Pin)) >> 5 + 1;
+  in1Pot = (readings1->addValue(analogRead(analogPot1Pin)) >> 5) + 1;
   in2Pin = analogRead(analogIn2Pin);
-  in2Pot = readings2->addValue(analogRead(analogPot2Pin) >> 5 + 1);
+  in2Pot = (readings2->addValue(analogRead(analogPot2Pin) >> 5) + 1);
   // numSteps = (in1Pot >> 5) + 1;
   //numSteps += (in1Pin >> 6);
   // numPulses = ( in2Pot >> 5) + 1;
@@ -149,8 +149,8 @@ void setup()
   GetAnalogs();
   inRotate = 0;
   numSteps = maxSteps;
-  numPulsesA = pot2State->curState();
-  numPulsesB = pot2State->curState();
+  numPulsesA = maxSteps/2;
+  numPulsesB = maxSteps/2;
   euCalc(arrayA, numPulsesA);
   euCalc(arrayB, numPulsesB);
 }
@@ -266,8 +266,8 @@ void loop()
     dumpInput(oldInPulsesA, oldInPulsesB, oldInSteps);    
 
     inRotate++;
-    int outPulseA = arrayA[(currPulse) % maxSteps];
-    int outPulseB = arrayB[(currPulse) % maxSteps];
+    int outPulseA = arrayA[(currPulse) % numSteps];
+    int outPulseB = arrayB[(currPulse) % numSteps];
 
     dumpState(outPulseA, outPulseB);
 
@@ -287,7 +287,6 @@ void loop()
     }
     else {
       digitalWrite(DigitalOut1Pin, LOW);
-      digitalWrite(DigitalOut2Pin, LOW);
     }
 
     if (outPulseB > 0) {      
@@ -312,6 +311,10 @@ void loop()
 
   // read the inputs in case we need to change
   GetAnalogs();
+  if(switch1State == SwitchState::Down) {
+      digitalWrite(DigitalOut1Pin, LOW);
+      digitalWrite(DigitalOut2Pin, LOW);
+  }
   if(pot1State->updateState(in1Pot)) {
     updatePotState(1);
   }
