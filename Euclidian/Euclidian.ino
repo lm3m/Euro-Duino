@@ -148,7 +148,9 @@ void setup()
   // get the analog reading to set up the system
   GetAnalogs();
   inRotate = 0;
-  
+  numSteps = maxSteps;
+  numPulsesA = pot2State->curState();
+  numPulsesB = pot2State->curState();
   euCalc(arrayA, numPulsesA);
   euCalc(arrayB, numPulsesB);
 }
