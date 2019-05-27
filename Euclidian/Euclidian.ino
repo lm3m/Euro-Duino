@@ -140,10 +140,10 @@ Progression* progression1;
 Progression* progression2;
 
 void GetSwitchStates() {
-  switch1State = digitalRead(Switch1Up) ? SwitchState::Up : SwitchState::Middle;
-  switch1State = digitalRead(Switch1Dwn) ? SwitchState::Down : switch1State;
-  switch2State = digitalRead(Switch2Up) ? SwitchState::Up : SwitchState::Middle;
-  switch2State = digitalRead(Switch2Dwn) ? SwitchState::Down : switch2State;
+  switch1State = !digitalRead(Switch1Up) == 1 ? SwitchState::Up : SwitchState::Middle;
+  switch1State = !digitalRead(Switch1Dwn) == 1 ? SwitchState::Down : switch1State;
+  switch2State = !digitalRead(Switch2Up) == 1 ? SwitchState::Up : SwitchState::Middle;
+  switch2State = !digitalRead(Switch2Dwn) == 1 ? SwitchState::Down : switch2State;
 }
 
 void GetAnalogs(void) {
@@ -198,6 +198,8 @@ void setup()
 
 void loop()
 {
+  int inStepsOld = inSteps;
+  int inPulsesOld = inPulses;
   // check to see if the clock as been set
   thisClock = digitalRead(clkIn);
   if (thisClock == HIGH && lastClock == LOW) {
@@ -208,6 +210,8 @@ void loop()
   lastClock = thisClock;
  
   if (doClock == HIGH) {
+    dumpInput(inPulsesOld, inStepsOld);    
+
     doClock = LOW;
     inRotate++;
     int outPulse = 0;
@@ -247,8 +251,6 @@ void loop()
   
   // read the inputs in case we need to change
   doCalc = 0;
-  int inStepsOld = inSteps;
-  int inPulsesOld = inPulses;
   GetAnalogs();
 
   if (inStepsOld != inSteps || inPulsesOld != inPulses) {
@@ -256,9 +258,9 @@ void loop()
   }
   
   if (doCalc) {
-    dumpInput(inPulsesOld, inStepsOld);    
     euCalc(0);
   }
+
 }
 
 int nextOcatve(int ocatvePos) {
@@ -374,7 +376,7 @@ void dumpInput(int inPulsesOld, int inStepsOld) {
   Serial.print(inPulsesOld);
   Serial.print(" new: ");
   Serial.print(inPulses);
-  Serial.print("Steps old: ");
+  Serial.print(" Steps old: ");
   Serial.print(inStepsOld);
   Serial.print(" new: ");
   Serial.print(inSteps);
@@ -387,13 +389,16 @@ void dumpInput(int inPulsesOld, int inStepsOld) {
   Serial.print(" pot 2: ");
   Serial.print(in2Pot);
   Serial.print(" Switch1Dwn: ");
-  Serial.print(digitalRead(Switch1Dwn));
+  Serial.print(!digitalRead(Switch1Dwn));
   Serial.print(" Switch1Up: ");
-  Serial.print(digitalRead(Switch1Up));
-  Serial.print(" Switch2Dwn): ");
-  Serial.print(digitalRead(Switch2Dwn));
+  Serial.print(!digitalRead(Switch1Up));
+  Serial.print(" Switch2Dwn: ");
+  Serial.print(!digitalRead(Switch2Dwn));
   Serial.print(" Switch2Up: ");
-  Serial.println(digitalRead(Switch2Up));
-
+  Serial.print(!digitalRead(Switch2Up));
+  Serial.print(" switch1State: ");
+  Serial.print(switch1State);
+  Serial.print(" switch2State: ");
+  Serial.println(switch2State);
 }
 // ===================== end of program =======================rmd
