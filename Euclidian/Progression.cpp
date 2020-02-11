@@ -10,6 +10,14 @@ void Progression::SetScale(Scale scale) {
     return;
 }
 
+Note Progression::GetRoot() {
+  return this->root;
+}
+
+Scale Progression::GetScale(){
+  return this->scale;
+}
+
 unsigned long Progression::GetCurrentNote() {
     Scale_Progression curProg = this->ScaleProgression[this->scale];
     unsigned int curNote = curProg.progression[this->currentPos % curProg.size];

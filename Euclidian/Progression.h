@@ -83,5 +83,7 @@ public:
     void SetRoot(Note root);
     void SetScale(Scale scale);
     unsigned long GetCurrentNote();
+    Note GetRoot();
+    Scale GetScale();
     unsigned long GetNextNote(Order order, int distance = 0);
 };

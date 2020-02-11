@@ -49,6 +49,8 @@
 #include "SmoothReadings.h"
 #include "PotentiometerState.h"
 
+#define _DEBUG 0
+
 const int analogIn1Pin = A0;  // Analog Input 1
 const int analogIn2Pin = A1; // Analog Input 2
 const int analogPot1Pin = A2;  // Analog Input 1
@@ -80,7 +82,7 @@ int in1Pin = 0;
 int in1Pot = 0;
 int in2Pin = 0;
 int in2Pot = 0;
-
+volatile int isr_count = 0;
 unsigned long currPulse = 0;
 
 SwitchState switch1State;
@@ -139,9 +141,13 @@ void setup()
   pot2State = new PotentiometerState();
   progression1 = new Progression(1, 255);
   progression2 = new Progression(1, 255);
-  progression2->SetScale(Scale::Harmonic);
+  progression1->SetRoot(Note::A_Flat);
+  progression2->SetRoot(Note::F);
+  progression1->SetScale(Scale::I_IV_I_V_I);
+  progression2->SetScale(Scale::III_VI_II_V);
 
   // Note: Interrupt 0 is for pin 2 (DigitalIn1Pin)
+  //attachInterrupt(digitalPinToInterrupt(DigitalIn2Pin), isrHandler, CHANGE);
   //attachInterrupt(0, isr, RISING);
   Serial.begin(9600);
   Serial.println("start...");
@@ -153,6 +159,10 @@ void setup()
   numPulsesB = maxSteps/2;
   euCalc(arrayA, numPulsesA);
   euCalc(arrayB, numPulsesB);
+}
+
+void isrHandler() {
+  isr_count++;  
 }
 
 Note mapPotToNote(int potState) {
@@ -254,12 +264,11 @@ void loop()
   int oldInPulsesB = numPulsesB;
   // check to see if the clock as been set
   byte thisClock = digitalRead(DigitalIn1Pin);
-  bool doClock;
+  bool doClock = false;
   if (thisClock == HIGH && lastClock == LOW) {
     currPulse++;
     doClock = true;;
   }
-
   lastClock = thisClock;
  
   if (doClock) {
@@ -283,10 +292,12 @@ void loop()
       if(switch1State != SwitchState::Down){
         analogWrite(analogOut1Pin, ~note);
         digitalWrite(DigitalOut1Pin, HIGH);
+        Serial.println("A: ON");
       }
     }
     else {
       digitalWrite(DigitalOut1Pin, LOW);
+      Serial.println("A: OFF");
     }
 
     if (outPulseB > 0) {      
@@ -301,10 +312,12 @@ void loop()
       if(switch1State != SwitchState::Down){
         analogWrite(analogOut2Pin, ~note2);
         digitalWrite(DigitalOut2Pin, HIGH);
+        Serial.println("B: ON");
       }
     }
     else {
       digitalWrite(DigitalOut2Pin, LOW);
+      Serial.println("B: OFF");
     }
   }
 
@@ -419,6 +432,7 @@ void dumpEuclid() {
 }
 
 void dumpState(int outPulseA, int outPulseB) {
+  #if _DEBUG
   Serial.print("outPluseA: ");
   Serial.print(outPulseA);
   Serial.print(" outPluseB: ");
@@ -432,11 +446,21 @@ void dumpState(int outPulseA, int outPulseB) {
   Serial.print(" currPulse: ");
   Serial.print(currPulse);
   Serial.print(" inRotate: ");
-  Serial.print(inRotate);
-  Serial.print(" note: ");
+  Serial.println(inRotate);
+  Serial.print(" root note 1: ");
+  Serial.print(progression1->GetRoot());
+  Serial.print(" scale 1: ");
+  Serial.print(progression1->GetScale());
+  Serial.print(" note 1: ");
   Serial.println(progression1->GetCurrentNote());
+  Serial.print(" root note 2: ");
+  Serial.print(progression2->GetRoot());
+  Serial.print(" scale 2: ");
+  Serial.print(progression2->GetScale());
   Serial.print(" note2: ");
   Serial.println(progression2->GetCurrentNote());
+  #endif
+  #if 0
   Serial.print(" pin 1: ");
   Serial.print(in1Pin);
   Serial.print(" pot 1: ");
@@ -445,9 +469,11 @@ void dumpState(int outPulseA, int outPulseB) {
   Serial.print(in2Pin);
   Serial.print(" pot 2: ");
   Serial.println(in2Pot);
+  #endif
 }
 
 void dumpInput(int oldInPulsesA, int oldInPulsesB, int oldInSteps) {
+  #if _DEBUG
   Serial.print("Pulses old A: ");
   Serial.print(oldInPulsesA);
   Serial.print(" new: ");
@@ -480,5 +506,6 @@ void dumpInput(int oldInPulsesA, int oldInPulsesB, int oldInSteps) {
   Serial.print(switch1State);
   Serial.print(" switch2State: ");
   Serial.println(switch2State);
+  #endif
 }
 // ===================== end of program =======================rmd
