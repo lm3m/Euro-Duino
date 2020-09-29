@@ -4,6 +4,7 @@
  *   the audio/cv inputs are not used
  *   MIDI input the clock tick message is used
  *   upper and lower poteniometer control the clock division used for each output
+ *   button triggers both outputs, turns on the lights, and resets the tick count
  * Outputs:
  *   both outputs supply CV triggers based on the divider (set using the pots)
  *   supported divisions are: 32nd, 16th, 8th, quarter, half, whole, 2x whole, 3x whole, 4x whole notes
