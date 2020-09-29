@@ -1,5 +1,4 @@
-//
-// Program ed3_rls
+// Based on code from: Program ed3_rls
 // 
 //  Description: Random Looping Sequencer, with quantisation option and variable loop length
 //

@@ -1,4 +1,26 @@
 /*
+Copyright (c) 2020 Luke W. McCullough <lukaswm@gmail.com>
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+*/
+
+/*
  * This is a clock divider for MIDI using the 1010 Music Eurosheild (https://1010music.com/shielddocs)
  * Inputs:
  *   the audio/cv inputs are not used
@@ -26,6 +48,7 @@ MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
 
 /*
  * MIDI ticks are sent out 24 per quarter note.
+ *     "Clock events are sent at a rate of 24 pulses per quarter note." from: https://en.wikipedia.org/wiki/MIDI_beat_clock
  * For time slices here are the definitions:
  * 1.      32nd notes (ticks/3) 
  * 2. sixteenth notes (ticks/6)
