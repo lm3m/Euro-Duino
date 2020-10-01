@@ -105,21 +105,35 @@ void handleClock(void)
     {
         Serial.println("clock: " + String(tick) + " clockDivider: " + String(clockDivider1));
         trig1 = true;
-        ++triggered1;
+        triggered1 = NON_BLINDING_HIGH;
     }
     else
     {
         trig1 = false;
+        if(clockDivider1 < NON_BLINDING_HIGH) {
+          triggered1 -= (NON_BLINDING_HIGH / (clockDivider1 - 1))*(tick % clockDivider1);
+        }
+        else {
+          --triggered1;
+        }
+        if(triggered1 < 0) triggered1 = 0;
     }
     if ((tick % clockDivider2) == 0)
     {
         Serial.println("clock: " + String(tick) + " clockDivider: " + String(clockDivider2));
         trig2 = true;
-        ++triggered2;
+        triggered2 = NON_BLINDING_HIGH;
     }
     else
     {
-        trig2 = false;
+        trig2 = false; 
+        if(clockDivider2 < NON_BLINDING_HIGH) {
+          triggered2 -= (NON_BLINDING_HIGH / (clockDivider2 - 1))*(tick % clockDivider2);
+        }
+        else {
+          --triggered2;
+        }
+        if(triggered2 < 0) triggered2 = 0;
     }
 }
 
@@ -188,7 +202,7 @@ void loop()
         Serial.println("button pressed");
         // trigger everything
         trig1 = trig2 = true;
-        triggered1 = triggered2 = -1;
+        triggered1 = triggered2 = NON_BLINDING_HIGH;
         // reset ticks
         tick = 0;
     }
@@ -202,10 +216,11 @@ void loop()
     dc2.amplitude(trig2 ? 1.0 : 0.0);
 
     // update the led states
-    analogWrite(ledPins[2], (triggered1 & 1) > 0 ? NON_BLINDING_HIGH : LOW);
-    analogWrite(ledPins[3], (triggered1 & 2) > 0 ? NON_BLINDING_HIGH : LOW);
-    analogWrite(ledPins[0], (triggered2 & 1) > 0 ? NON_BLINDING_HIGH : LOW);
-    analogWrite(ledPins[1], (triggered2 & 2) > 0 ? NON_BLINDING_HIGH : LOW);
+    analogWrite(ledPins[2], triggered1);
+    analogWrite(ledPins[3], triggered1);
+    analogWrite(ledPins[0], triggered2);
+    analogWrite(ledPins[1], triggered2);
+
 
     // update the divider state
     clockDivider1 = clockDivider[map(upperPotAnalog.getValue(), 0, 1023, 0, DIVIDER_COUNT - 1)];
