@@ -41,7 +41,7 @@ SOFTWARE.
 #define UPPER_POT_INPUT 20
 #define LOWER_POT_INPUT 21
 #define DEBOUNCE_MS 100
-#define DIVIDER_COUNT 9
+#define DIVIDER_COUNT 15
 #define NON_BLINDING_HIGH 64
 
 MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
@@ -50,17 +50,23 @@ MIDI_CREATE_INSTANCE(HardwareSerial, Serial1, MIDI);
  * MIDI ticks are sent out 24 per quarter note.
  *     "Clock events are sent at a rate of 24 pulses per quarter note." from: https://en.wikipedia.org/wiki/MIDI_beat_clock
  * For time slices here are the definitions:
- * 1.      32nd notes (ticks/3) 
- * 2. sixteenth notes (ticks/6)
- * 3.    eighth notes (ticks/12)
- * 4.   quarter notes (ticks/24)
- * 5.      half notes (ticks/48)
- * 6.     whole notes (ticks/96)
- * 7.   2 whole notes (ticks/192)
- * 8.   3 whole notes (ticks/288)
- * 9.   4 whole notes (ticks/384)
+ * 1.             32nd notes (ticks/3) 
+ * 2.   eighth note triplets (ticks/4)
+ * 3.        sixteenth notes (ticks/6)
+ * 4.  quarter note triplets (ticks/8)
+ * 5.           eighth notes (ticks/12)
+ * 6.     half note triplets (ticks/16)
+ * 7.          quarter notes (ticks/24)
+ * 8.    whole note triplets (ticks/32)
+ * 9.             half notes (ticks/48)
+ * 10. 2 whole note triplets (ticks/64)
+ * 11.           whole notes (ticks/96)
+ * 12. 4 whole note triplets (ticks/128)
+ * 13.         2 whole notes (ticks/192)
+ * 14.         3 whole notes (ticks/288)
+ * 15.         4 whole notes (ticks/384)
  */
-int clockDivider[DIVIDER_COUNT] = {3, 6, 12, 24, 48, 96, 192, 288, 384};
+int clockDivider[DIVIDER_COUNT] = {384, 288, 192, 128, 96, 64, 48, 32, 24, 16, 12, 8, 6, 4, 3};
 // clock divider state
 int clockDivider1 = 0;
 int clockDivider2 = 0;
@@ -132,7 +138,7 @@ void handleClock(void)
         }
         else {
           --triggered2;
-        }
+        }  
         if(triggered2 < 0) triggered2 = 0;
     }
 }
